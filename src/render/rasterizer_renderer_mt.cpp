@@ -25,8 +25,6 @@ using Eigen::Vector4f;
 
 void RasterizerRenderer::render_mt(const Scene& scene)
 {
-    int thread_num = 8;
-    std::vector<std::thread> threads(thread_num);
     Rasterizer r(static_cast<int>(width), static_cast<int>(height));
 
     // choose the active shader for fragment shader
@@ -41,69 +39,18 @@ void RasterizerRenderer::render_mt(const Scene& scene)
     this->rendering_res.clear();
 
     time_point begin_time = steady_clock::now();
-    //-----------------------------------------------------------------------------------------------
-    //
-    // multi-thread render_mt should be completed here
-    for (const auto& group : scene.groups) {
-        // int group_size = group->objects.size();
-        // int thread_num = 8;
-        // int block_size = group_size / 8;
-        // std::vector<std::thread> threads(thread_num);
-        Camera cam = scene.camera;
-        // set r.view & r.projection
-        r.view       = cam.view();
-        r.projection = cam.projection();
-        
-        for (const auto& object : group->objects) {
-            // set r.model
-            r.model = object->model();
-            // set Uniforms for vertex shader
-            Uniforms::MVP         = r.projection * r.view * r.model;
-            Uniforms::inv_trans_M = r.model.inverse().transpose();
-            Uniforms::width       = r.width;
-            Uniforms::height      = r.height;
-            // input object->mesh's vertices & faces & normals data
-            std::vector<Triangle> TriangleList;
-            const std::vector<float>& vertices     = object->mesh.vertices.data;
-            const std::vector<unsigned int>& faces = object->mesh.faces.data;
-            const std::vector<float>& normals      = object->mesh.normals.data;
-            // #pragma omp parallel for
-            int block_size = faces.size() / thread_num;
-            auto Thread    = [&](int start, int end) {
-                for (int i = start; i < end; i += 3) {
-                    // set triangle list(vertex & normal)
-                    TriangleList.emplace_back();
-                    Triangle& t = *TriangleList.rbegin();
-                    for (int j = 0; j < 3; j++) {
-                        unsigned int idx = faces[i + j];
-                        t.vertex[j]      = Vector4f(vertices[3 * idx], vertices[3 * idx + 1],
-                                                       vertices[3 * idx + 2], 1.0f);
-                        t.normal[j] =
-                            Vector3f(normals[3 * idx], normals[3 * idx + 1], normals[3 * idx + 2]);
-                    }
-                }
-            };
-            for (int i = 0; i < thread_num; ++i) {
-                threads[i] = std::thread(Thread, i * block_size, (i + 1) * block_size);
-            }
-            for (int i = 0; i < thread_num; ++i) threads[i].join();
-            for (unsigned int i = thread_num * block_size; i < faces.size(); i += 3) {
-                // set triangle list(vertex & normal)
-                TriangleList.emplace_back();
-                Triangle& t = *TriangleList.rbegin();
-                for (int j = 0; j < 3; j++) {
-                    unsigned int idx = faces[i + j];
-                    t.vertex[j]      = Vector4f(vertices[3 * idx], vertices[3 * idx + 1],
-                                                vertices[3 * idx + 2], 1.0f);
-                    t.normal[j] =
-                        Vector3f(normals[3 * idx], normals[3 * idx + 1], normals[3 * idx + 2]);
-                }
-            }
-            r.draw_mt(TriangleList, object->mesh.material, scene.lights, cam);
-        }
-    }
 
-    //-------------------------------------------------------------------------------------------
+
+
+    
+    // this line below is just for compiling and can be deleted
+    (void)scene;
+    
+    // multi-thread render_mt should be completed here
+
+    
+    
+    
     time_point end_time         = steady_clock::now();
     duration rendering_duration = end_time - begin_time;
 
