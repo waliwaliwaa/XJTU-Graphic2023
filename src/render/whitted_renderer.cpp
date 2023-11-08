@@ -119,7 +119,6 @@ float WhittedRenderer::fresnel(const Vector3f& I, const Vector3f& N, const float
     float Rs   = ((nt * cosi) - (ni * cost)) / ((nt * cosi) + (ni * cost));
     float Rp   = ((ni * cosi) - (nt * cost)) / ((ni * cosi) + (nt * cost));
     return (Rs * Rs + Rp * Rp) / 2.0f;
-
 }
 
 // 如果相交返回Intersection结构体，如果不相交则返回false
@@ -132,10 +131,18 @@ std::optional<std::tuple<Intersection, GL::Material>> WhittedRenderer::trace(con
     GL::Material material;
     for (const auto& group : scene.groups) {
         for (const auto& object : group->objects) {
-            auto intersection = naive_intersect(ray, object->mesh, object->model());
+            std::optional<Intersection> intersection;
+            if (use_bvh) {
+                intersection = object->bvh->intersect(ray, object->mesh, object->model());
+            } else {
+                intersection = naive_intersect(ray, object->mesh, object->model());
+            };
+
+            //
             if (intersection.has_value()) {
+                //std::cout << intersection.has_value() << std::endl;
                 if (intersection->t < tNear) {
-                    // std::cout << "has" << std::endl;
+
                     payload  = intersection;
                     material = object->mesh.material;
                     tNear    = intersection->t;
@@ -163,7 +170,8 @@ Vector3f WhittedRenderer::cast_ray(const Ray& ray, const Scene& scene, int depth
     Vector3f specular(0, 0, 0);
     if (result.has_value()) {
         auto [intersection, material] = result.value();
-        // 由于不知道三角形顶点坐标，用射线t*d + o代表交点
+        // std::cout << "t has value" << std::endl;
+        //  由于不知道三角形顶点坐标，用射线t*d + o代表交点
         Vector3f hitPoint = intersection.t * ray.direction + ray.origin;
         // material.shiness<1000 时为 diffuse，否则为 relection
         if (material.shininess >= 1000) {
@@ -182,8 +190,6 @@ Vector3f WhittedRenderer::cast_ray(const Ray& ray, const Scene& scene, int depth
             }
             Vector3f r = cast_ray(reflection, scene, depth + 1);
             hitcolor   = r * kr;
-            // std::cout << kr << std::endl;
-            // std::cout << hitcolor << std::endl;
         } else {
             for (const Light& light : scene.lights) {
 

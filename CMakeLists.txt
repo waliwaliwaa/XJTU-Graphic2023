@@ -56,8 +56,8 @@ set(DANDELION_SCENE_SOURCES
 set(DANDELION_UTILS_SOURCES
     src/utils/stb_image_wrapper.cpp
     src/utils/ray.cpp
-    # src/utils/aabb.cpp
-    # src/utils/bvh.cpp
+    src/utils/aabb.cpp
+    src/utils/bvh.cpp
     src/utils/kinetic_state.cpp
     src/utils/logger.cpp
 )
@@ -107,8 +107,8 @@ target_link_libraries(${PROJECT_NAME}
     assimp
     #debug dandelion-ray-debug
     #optimized dandelion-ray
-    debug dandelion-bvh-debug
-    optimized dandelion-bvh
+    #debug dandelion-bvh-debug
+    #optimized dandelion-bvh
 )
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE $<$<CONFIG:Debug>:DEBUG>

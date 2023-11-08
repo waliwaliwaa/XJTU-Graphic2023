@@ -11,6 +11,7 @@
 #include "math.hpp"
 
 using Eigen::Vector3f;
+using Eigen::Vector4f;
 using std::optional;
 using std::vector;
 
@@ -54,6 +55,7 @@ size_t BVH::count_nodes(BVHNode* node)
     else
         return count_nodes(node->left) + count_nodes(node->right) + 1;
 }
+
 // 递归建立BVH
 BVHNode* BVH::recursively_build(vector<size_t> faces_idx)
 {
@@ -62,6 +64,51 @@ BVHNode* BVH::recursively_build(vector<size_t> faces_idx)
     AABB aabb;
     for (size_t i = 0; i < faces_idx.size(); i++) {
         aabb = union_AABB(aabb, get_aabb(mesh, faces_idx[i]));
+    }
+    if (faces_idx.size() == 1) {
+        node->face_idx = faces_idx[0];
+        node->left     = nullptr;
+        node->right    = nullptr;
+        node->aabb     = get_aabb(mesh, faces_idx[0]);
+        return node;
+    } else if (faces_idx.size() == 2) {
+        node->left  = recursively_build(std::vector{faces_idx[0]});
+        node->right = recursively_build(std::vector{faces_idx[1]});
+        node->aabb  = union_AABB(node->left->aabb, node->right->aabb);
+    } else {
+        AABB centroid_aabb;
+        for (int i = 0; i < faces_idx.size(); ++i) {
+            centroid_aabb = union_AABB(centroid_aabb, get_aabb(mesh, faces_idx[i]).centroid());
+        }
+        int longest_dimension = centroid_aabb.max_extent();
+        // auto m = this->mesh;
+        switch (longest_dimension) {
+        case 0:
+            std::sort(faces_idx.begin(), faces_idx.end(), [&](size_t i, size_t j) {
+                return get_aabb(mesh, i).centroid().x() < get_aabb(mesh, j).centroid().x();
+            });
+            break;
+        case 1:
+            std::sort(faces_idx.begin(), faces_idx.end(), [&](size_t i, size_t j) {
+                return get_aabb(mesh, i).centroid().y() < get_aabb(mesh, j).centroid().y();
+            });
+            break;
+        case 2:
+            std::sort(faces_idx.begin(), faces_idx.end(), [&](size_t i, size_t j) {
+                return get_aabb(mesh, i).centroid().z() < get_aabb(mesh, j).centroid().z();
+            });
+            break;
+        default: break;
+        }
+        auto faces_begin = faces_idx.begin();
+        auto faces_end   = faces_idx.end();
+        auto faces_mid   = faces_idx.begin() + faces_idx.size() / 2;
+        auto left_tree   = vector<size_t>(faces_begin, faces_mid);
+        // 防止中间的物体重复索引，虽然但是好像不太需要
+        auto right_tree = vector<size_t>(faces_mid, faces_end);
+        node->left      = recursively_build(left_tree);
+        node->right     = recursively_build(right_tree);
+        node->aabb      = union_AABB(node->left->aabb, node->right->aabb);
     }
     // if faces_idx.size()==1: return node;
     // if faces_idx.size()==2: recursively_build() & union_AABB(node->left->aabb,
@@ -81,24 +128,62 @@ optional<Intersection> BVH::intersect(const Ray& ray, [[maybe_unused]] const GL:
         isect = std::nullopt;
         return isect;
     }
-    isect = ray_node_intersect(root, ray);
+    Ray trans_ray;
+    Eigen::Matrix4f model_inv = this->model.inverse();
+    trans_ray.direction =
+        (model_inv * Vector4f(ray.direction.x(), ray.direction.y(), ray.direction.z(), 1.0f))
+            .head<3>();
+    trans_ray.origin =
+        (model_inv * Vector4f(ray.origin.x(), ray.origin.y(), ray.origin.z(), 1.0f)).head<3>();
+    isect = ray_node_intersect(root, trans_ray);
+    if (isect.has_value()) {
+        Vector3f world_intersection =
+            (model * (isect->t * trans_ray.direction + trans_ray.origin).homogeneous())
+                .head<3>();
+        //std::cout << world_intersection << std::endl;
+        float dis     = (world_intersection - ray.origin).norm();
+        //std::cout << "t:" << isect->t << " dis:" << dis << std::endl;
+        isect->t      = dis;
+        isect->normal = (model_inv.transpose() *
+                         Vector4f(isect->normal.x(), isect->normal.y(), isect->normal.z(), 1.0f))
+                            .head<3>();
+    }
     return isect;
 }
 // 发射的射线与当前节点求交，并递归获取最终的求交结果
 optional<Intersection> BVH::ray_node_intersect(BVHNode* node, const Ray& ray) const
 {
-    // these lines below are just for compiling and can be deleted
-    (void)ray;
-    (void)node;
-    // these lines above are just for compiling and can be deleted
-
-    optional<Intersection> isect;
     // The node intersection is performed in the model coordinate system.
     // Therefore, the ray needs to be transformed into the model coordinate system.
     // The intersection attributes returned are all in the model coordinate system.
-    // Therefore, They are need to be converted to the world coordinate system.    
+    // Therefore, They are need to be converted to the world coordinate system.
     // If the model shrinks, the value of t will also change.
     // The change of t can be solved by intersection point changing simultaneously
-            
-    return isect;
+    //---------------------------------------
+    Vector3f ray_inv_dir(1.0f / ray.direction.x(), 1.0f / ray.direction.y(),
+                         1.0f / ray.direction.z());
+
+    std::array<int, 3> dir_is_neg;
+    dir_is_neg[0] = int(ray.direction.x() >= 0);
+    dir_is_neg[1] = int(ray.direction.y() >= 0);
+    dir_is_neg[2] = int(ray.direction.z() >= 0);
+
+    if ((node == nullptr) || !(node->aabb.intersect(ray, ray_inv_dir, dir_is_neg)))
+        return std::nullopt;
+
+    optional<Intersection> isect;
+    if (node->left == nullptr && node->right == nullptr) {
+        isect = ray_triangle_intersect(ray, mesh, node->face_idx);
+        return isect;
+    } else {
+        optional<Intersection> right_isect, left_isect;
+        left_isect = ray_node_intersect(node->left, ray);
+        right_isect = ray_node_intersect(node->right, ray);
+
+        if (left_isect.has_value() && right_isect.has_value()) {
+            return (left_isect->t < right_isect->t) ? left_isect : right_isect;
+        }
+        // 如果只有一个子树有交点，返回该交点
+        return left_isect.has_value() ? left_isect : right_isect;
+    }
 }

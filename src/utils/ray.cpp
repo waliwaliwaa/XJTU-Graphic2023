@@ -59,12 +59,43 @@ Ray generate_ray(int width, int height, int x, int y, Camera& camera, float dept
 
 optional<Intersection> ray_triangle_intersect(const Ray& ray, const GL::Mesh& mesh, size_t index)
 {
-    // these lines below are just for compiling and can be deleted
-    (void)ray;
-    (void)mesh;
-    (void)index;
-    // these lines above are just for compiling and can be deleted
+    // 此函数内是model坐标系
+    // 函数外都是世界坐标系
+    
     Intersection result;
+    result.t                   = infinity;
+    std::array<size_t, 3> face = mesh.face(index);
+    Vector3f a                 = mesh.vertex(face[0]);
+    Vector3f b                 = mesh.vertex(face[1]);
+    Vector3f c                 = mesh.vertex(face[2]);
+    // a                          = (model * Vector4f(a.x(), a.y(), a.z(), 1)).head<3>();
+    // b                          = (model * Vector4f(b.x(), b.y(), b.z(), 1)).head<3>();
+    // c                          = (model * Vector4f(c.x(), c.y(), c.z(), 1)).head<3>();
+    Vector3f E1 = b - a;
+    Vector3f E2 = c - a;
+    Vector3f S  = ray.origin - a;
+    Vector3f S1 = ray.direction.cross(E2);
+    Vector3f S2 = S.cross(E1);
+    if (std::fabs(S1.dot(E1)) < eps)
+        return std::nullopt;
+    float coef = 1.0 / S1.dot(E1);
+    float t    = coef * S2.dot(E2);
+    float b1   = coef * S1.dot(S);
+    float b2   = coef * S2.dot(ray.direction);
+
+    if (t >= 0 && b1 >= 0 && b2 >= 0 && (1 - b1 - b2) >= 0) {
+        
+        if (t < eps)
+            return std::nullopt;
+        if (t < result.t && t > eps) {
+            result.t                 = t;
+            result.face_index        = index;
+            result.barycentric_coord = {1 - b1 - b2, b1, b2};
+            // 已知三角形三个顶点法向量，求三角形所在平面法向量。顶点法向量肯定是一样的，所以相加之后归一化就行
+            result.normal = E1.cross(E2).normalized();
+            //
+        }
+    }
 
     if (result.t - infinity < -eps) {
         return result;
