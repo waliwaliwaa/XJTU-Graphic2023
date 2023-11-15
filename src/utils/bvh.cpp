@@ -128,24 +128,24 @@ optional<Intersection> BVH::intersect(const Ray& ray, [[maybe_unused]] const GL:
         isect = std::nullopt;
         return isect;
     }
-    Ray trans_ray;
+
     Eigen::Matrix4f model_inv = this->model.inverse();
+    Ray trans_ray;
     trans_ray.direction =
-        (model_inv * Vector4f(ray.direction.x(), ray.direction.y(), ray.direction.z(), 1.0f))
-            .head<3>();
+        (model_inv * Vector4f(ray.direction.x(), ray.direction.y(), ray.direction.z(), 0.0f))
+            .head<3>()
+            .normalized();
     trans_ray.origin =
         (model_inv * Vector4f(ray.origin.x(), ray.origin.y(), ray.origin.z(), 1.0f)).head<3>();
     isect = ray_node_intersect(root, trans_ray);
     if (isect.has_value()) {
         Vector3f world_intersection =
-            (model * (isect->t * trans_ray.direction + trans_ray.origin).homogeneous())
-                .head<3>();
-        //std::cout << world_intersection << std::endl;
+            (model * (isect->t * trans_ray.direction + trans_ray.origin).homogeneous()).head<3>();
+        // Vector3f world_intersection;
         float dis     = (world_intersection - ray.origin).norm();
-        //std::cout << "t:" << isect->t << " dis:" << dis << std::endl;
         isect->t      = dis;
         isect->normal = (model_inv.transpose() *
-                         Vector4f(isect->normal.x(), isect->normal.y(), isect->normal.z(), 1.0f))
+                         Vector4f(isect->normal.x(), isect->normal.y(), isect->normal.z(), 0.0f))
                             .head<3>();
     }
     return isect;
@@ -159,10 +159,8 @@ optional<Intersection> BVH::ray_node_intersect(BVHNode* node, const Ray& ray) co
     // Therefore, They are need to be converted to the world coordinate system.
     // If the model shrinks, the value of t will also change.
     // The change of t can be solved by intersection point changing simultaneously
-    //---------------------------------------
     Vector3f ray_inv_dir(1.0f / ray.direction.x(), 1.0f / ray.direction.y(),
                          1.0f / ray.direction.z());
-
     std::array<int, 3> dir_is_neg;
     dir_is_neg[0] = int(ray.direction.x() >= 0);
     dir_is_neg[1] = int(ray.direction.y() >= 0);
@@ -177,7 +175,7 @@ optional<Intersection> BVH::ray_node_intersect(BVHNode* node, const Ray& ray) co
         return isect;
     } else {
         optional<Intersection> right_isect, left_isect;
-        left_isect = ray_node_intersect(node->left, ray);
+        left_isect  = ray_node_intersect(node->left, ray);
         right_isect = ray_node_intersect(node->right, ray);
 
         if (left_isect.has_value() && right_isect.has_value()) {
