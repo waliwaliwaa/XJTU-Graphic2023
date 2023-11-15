@@ -140,13 +140,10 @@ std::optional<std::tuple<Intersection, GL::Material>> WhittedRenderer::trace(con
 
             //
             if (intersection.has_value()) {
-                //std::cout << intersection.has_value() << std::endl;
                 if (intersection->t < tNear) {
-
                     payload  = intersection;
                     material = object->mesh.material;
                     tNear    = intersection->t;
-                    // std::cout << "tNear" << tNear << std::endl;
                 }
             }
         }
