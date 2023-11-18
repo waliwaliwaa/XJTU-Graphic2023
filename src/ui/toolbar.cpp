@@ -183,9 +183,13 @@ void Toolbar::layout_mode(Scene& scene)
                              ImGuiSliderFlags_AlwaysClamp);
             ImGui::PopItemWidth();
             ImGui::PopID();
-            selected_object->rotation = AngleAxisf(radians(x_angle), Vector3f::UnitX()) *
-                                        AngleAxisf(radians(y_angle), Vector3f::UnitY()) *
-                                        AngleAxisf(radians(z_angle), Vector3f::UnitZ());
+            // selected_object->rotation = AngleAxisf(radians(x_angle), Vector3f::UnitX()) *
+            //                             AngleAxisf(radians(y_angle), Vector3f::UnitY()) *
+            //                             AngleAxisf(radians(z_angle), Vector3f::UnitZ());
+            Quaternionf qx(cos(radians(x_angle) / 2), 1.0f * sin(radians(x_angle) / 2), 0, 0);
+            Quaternionf qy(cos(radians(y_angle) / 2), 0, 1.0f * sin(radians(y_angle) / 2), 0);
+            Quaternionf qz(cos(radians(z_angle) / 2), 0, 0, 1.0f * sin(radians(z_angle) / 2));
+            selected_object->rotation = qx * qy * qz;
         }
         ImGui::EndTabItem();
     }

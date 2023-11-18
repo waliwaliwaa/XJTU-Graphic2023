@@ -36,9 +36,9 @@ VertexShaderPayload vertex_shader(const VertexShaderPayload& payload)
     output_payload.position.y() = (output_payload.position.y() + 1) * Uniforms::height / 2;
 
     // Vertex normal transformation
-    // 法向量本来是vector3f, 没法与M(Matrix4f)直接相乘，所以扩展一位置1
+    // 法向量本来是vector3f, 没法与M(Matrix4f)直接相乘，所以扩展一位置0
     Eigen::Vector4f expanded_normal(payload.normal.x(), payload.normal.y(), payload.normal.z(),
-                                    1.0f);
+                                    0.0f);
     // 取Vector4f前三个值 从(0,0)开始取大小为<3,1>的子矩阵
     expanded_normal           = Uniforms::inv_trans_M * expanded_normal;
     output_payload.normal.x() = expanded_normal.x();

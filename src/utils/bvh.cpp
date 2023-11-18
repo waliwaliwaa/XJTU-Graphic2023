@@ -77,7 +77,7 @@ BVHNode* BVH::recursively_build(vector<size_t> faces_idx)
         node->aabb  = union_AABB(node->left->aabb, node->right->aabb);
     } else {
         AABB centroid_aabb;
-        for (int i = 0; i < faces_idx.size(); ++i) {
+        for (size_t i = 0; i < faces_idx.size(); ++i) {
             centroid_aabb = union_AABB(centroid_aabb, get_aabb(mesh, faces_idx[i]).centroid());
         }
         int longest_dimension = centroid_aabb.max_extent();

@@ -24,7 +24,7 @@ Vector3f AABB::diagonal() const
 {
     return p_max - p_min;
 }
-// 返回AABB最长的一维
+// 返回AABB最长的一�?
 int AABB::max_extent() const
 {
     Vector3f d = diagonal();
@@ -45,7 +45,6 @@ bool AABB::intersect(const Ray& ray, const Vector3f& inv_dir, const std::array<i
 {
     Vector3f t_min = (p_min - ray.origin).cwiseProduct(inv_dir);
     Vector3f t_max = (p_max - ray.origin).cwiseProduct(inv_dir);
-    Vector3f dir   = ray.direction;
     if (dir_is_neg[0] == 0)
         std::swap(t_min.x(), t_max.x());
     if (dir_is_neg[1] == 0)
